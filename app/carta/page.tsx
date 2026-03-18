@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Seccion, Plato } from "@/lib/types";
 import Image from "next/image";
@@ -13,29 +13,20 @@ export default function CartaPage() {
   const [seccionActiva, setSeccionActiva] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchData() {
-      const timeout = setTimeout(() => setLoading(false), 8000);
-      try {
-        console.log("ProjectID:", process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
-        console.log("Cargando secciones...");
-        const seccionesSnap = await getDocs(collection(db, "secciones"));
-        console.log("Secciones recibidas:", seccionesSnap.docs.length);
-        const platosSnap = await getDocs(collection(db, "platos"));
-        console.log("Platos recibidos:", platosSnap.docs.length);
-        const secs = seccionesSnap.docs
+    const unsubSec = onSnapshot(collection(db, "secciones"), (secSnap) => {
+      const unsubPlat = onSnapshot(collection(db, "platos"), (platSnap) => {
+        const secs = secSnap.docs
           .map((d) => ({ id: d.id, ...d.data() } as Seccion))
           .sort((a, b) => a.orden - b.orden);
+        const plats = platSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Plato));
         setSecciones(secs);
-        setPlatos(platosSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Plato)));
-        if (secs.length > 0) setSeccionActiva(secs[0].id);
-      } catch (err) {
-        console.error("Error cargando carta:", err);
-      } finally {
-        clearTimeout(timeout);
+        setPlatos(plats);
+        if (secs.length > 0) setSeccionActiva((prev) => prev ?? secs[0].id);
         setLoading(false);
-      }
-    }
-    fetchData();
+      });
+      return () => unsubPlat();
+    });
+    return () => unsubSec();
   }, []);
 
   const seccionActivaData = secciones.find((s) => s.id === seccionActiva);
