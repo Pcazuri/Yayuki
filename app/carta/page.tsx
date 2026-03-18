@@ -14,6 +14,7 @@ export default function CartaPage() {
 
   useEffect(() => {
     async function fetchData() {
+      const timeout = setTimeout(() => setLoading(false), 8000);
       try {
         const seccionesSnap = await getDocs(query(collection(db, "secciones"), orderBy("orden")));
         const platosSnap = await getDocs(collection(db, "platos"));
@@ -24,6 +25,7 @@ export default function CartaPage() {
       } catch (err) {
         console.error("Error cargando carta:", err);
       } finally {
+        clearTimeout(timeout);
         setLoading(false);
       }
     }
