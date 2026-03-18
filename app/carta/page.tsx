@@ -16,8 +16,11 @@ export default function CartaPage() {
     async function fetchData() {
       const timeout = setTimeout(() => setLoading(false), 8000);
       try {
+        console.log("Cargando secciones...");
         const seccionesSnap = await getDocs(collection(db, "secciones"));
+        console.log("Secciones recibidas:", seccionesSnap.docs.length);
         const platosSnap = await getDocs(collection(db, "platos"));
+        console.log("Platos recibidos:", platosSnap.docs.length);
         const secs = seccionesSnap.docs
           .map((d) => ({ id: d.id, ...d.data() } as Seccion))
           .sort((a, b) => a.orden - b.orden);
