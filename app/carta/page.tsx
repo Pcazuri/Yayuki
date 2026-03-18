@@ -14,13 +14,18 @@ export default function CartaPage() {
 
   useEffect(() => {
     async function fetchData() {
-      const seccionesSnap = await getDocs(query(collection(db, "secciones"), orderBy("orden")));
-      const platosSnap = await getDocs(collection(db, "platos"));
-      const secs = seccionesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Seccion));
-      setSecciones(secs);
-      setPlatos(platosSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Plato)));
-      if (secs.length > 0) setSeccionActiva(secs[0].id);
-      setLoading(false);
+      try {
+        const seccionesSnap = await getDocs(query(collection(db, "secciones"), orderBy("orden")));
+        const platosSnap = await getDocs(collection(db, "platos"));
+        const secs = seccionesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Seccion));
+        setSecciones(secs);
+        setPlatos(platosSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Plato)));
+        if (secs.length > 0) setSeccionActiva(secs[0].id);
+      } catch (err) {
+        console.error("Error cargando carta:", err);
+      } finally {
+        setLoading(false);
+      }
     }
     fetchData();
   }, []);
