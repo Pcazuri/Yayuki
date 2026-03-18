@@ -109,38 +109,46 @@ export default function AdminPage() {
 
   async function poblarCarta() {
     setPoblando(true);
+    try {
+      // Borrar existentes en paralelo
+      const [secSnap, platSnap] = await Promise.all([
+        getDocs(collection(db, "secciones")),
+        getDocs(collection(db, "platos")),
+      ]);
+      await Promise.all([
+        ...secSnap.docs.map((d) => deleteDoc(doc(db, "secciones", d.id))),
+        ...platSnap.docs.map((d) => deleteDoc(doc(db, "platos", d.id))),
+      ]);
 
-    // Borrar secciones y platos existentes
-    const secSnap = await getDocs(collection(db, "secciones"));
-    const platSnap = await getDocs(collection(db, "platos"));
-    await Promise.all([
-      ...secSnap.docs.map((d) => deleteDoc(doc(db, "secciones", d.id))),
-      ...platSnap.docs.map((d) => deleteDoc(doc(db, "platos", d.id))),
-    ]);
+      // Crear secciones en paralelo
+      const refs = await Promise.all(
+        SECCIONES_SEED.map((s) => addDoc(collection(db, "secciones"), s))
+      );
+      const seccionIds: Record<string, string> = {};
+      SECCIONES_SEED.forEach((s, i) => { seccionIds[s.nombre] = refs[i].id; });
 
-    // Crear secciones
-    const seccionIds: Record<string, string> = {};
-    for (const s of SECCIONES_SEED) {
-      const ref = await addDoc(collection(db, "secciones"), s);
-      seccionIds[s.nombre] = ref.id;
+      // Crear platos en paralelo
+      await Promise.all(
+        PLATOS_SEED.map((p) => {
+          const seccionId = seccionIds[p.seccion];
+          if (!seccionId) return Promise.resolve();
+          return addDoc(collection(db, "platos"), {
+            nombre: p.nombre,
+            descripcion: p.descripcion,
+            precio: p.precio,
+            ...(p.precio2 ? { precio2: p.precio2 } : {}),
+            seccionId,
+            disponible: true,
+          });
+        })
+      );
+    } catch (err) {
+      console.error("Error poblando carta:", err);
+      alert("Error al poblar la carta. Revisa la consola.");
+    } finally {
+      setPoblando(false);
+      fetchData();
     }
-
-    // Crear platos
-    for (const p of PLATOS_SEED) {
-      const seccionId = seccionIds[p.seccion];
-      if (!seccionId) continue;
-      await addDoc(collection(db, "platos"), {
-        nombre: p.nombre,
-        descripcion: p.descripcion,
-        precio: p.precio,
-        ...(p.precio2 ? { precio2: p.precio2 } : {}),
-        seccionId,
-        disponible: true,
-      });
-    }
-
-    setPoblando(false);
-    fetchData();
   }
 
   async function crearSeccion() {
