@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import {
-  collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query,
+  collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, writeBatch,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -110,41 +110,45 @@ export default function AdminPage() {
   async function poblarCarta() {
     setPoblando(true);
     try {
-      // Borrar existentes en paralelo
+      // Borrar existentes
       const [secSnap, platSnap] = await Promise.all([
         getDocs(collection(db, "secciones")),
         getDocs(collection(db, "platos")),
       ]);
-      await Promise.all([
-        ...secSnap.docs.map((d) => deleteDoc(doc(db, "secciones", d.id))),
-        ...platSnap.docs.map((d) => deleteDoc(doc(db, "platos", d.id))),
-      ]);
 
-      // Crear secciones en paralelo
-      const refs = await Promise.all(
-        SECCIONES_SEED.map((s) => addDoc(collection(db, "secciones"), s))
-      );
+      const deleteBatch = writeBatch(db);
+      secSnap.docs.forEach((d) => deleteBatch.delete(doc(db, "secciones", d.id)));
+      platSnap.docs.forEach((d) => deleteBatch.delete(doc(db, "platos", d.id)));
+      await deleteBatch.commit();
+
+      // Crear secciones y platos en un solo batch
+      const createBatch = writeBatch(db);
       const seccionIds: Record<string, string> = {};
-      SECCIONES_SEED.forEach((s, i) => { seccionIds[s.nombre] = refs[i].id; });
 
-      // Crear platos en paralelo
-      await Promise.all(
-        PLATOS_SEED.map((p) => {
-          const seccionId = seccionIds[p.seccion];
-          if (!seccionId) return Promise.resolve();
-          return addDoc(collection(db, "platos"), {
-            nombre: p.nombre,
-            descripcion: p.descripcion,
-            precio: p.precio,
-            ...(p.precio2 ? { precio2: p.precio2 } : {}),
-            seccionId,
-            disponible: true,
-          });
-        })
-      );
+      SECCIONES_SEED.forEach((s) => {
+        const ref = doc(collection(db, "secciones"));
+        seccionIds[s.nombre] = ref.id;
+        createBatch.set(ref, s);
+      });
+
+      PLATOS_SEED.forEach((p) => {
+        const seccionId = seccionIds[p.seccion];
+        if (!seccionId) return;
+        const ref = doc(collection(db, "platos"));
+        createBatch.set(ref, {
+          nombre: p.nombre,
+          descripcion: p.descripcion,
+          precio: p.precio,
+          ...(p.precio2 ? { precio2: p.precio2 } : {}),
+          seccionId,
+          disponible: true,
+        });
+      });
+
+      await createBatch.commit();
     } catch (err) {
       console.error("Error poblando carta:", err);
-      alert("Error al poblar la carta. Revisa la consola.");
+      alert("Error al poblar la carta: " + (err as Error).message);
     } finally {
       setPoblando(false);
       fetchData();
