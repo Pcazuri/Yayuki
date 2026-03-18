@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import {
-  collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, writeBatch,
+  collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -101,9 +101,9 @@ export default function AdminPage() {
   }, [user]);
 
   async function fetchData() {
-    const secSnap = await getDocs(query(collection(db, "secciones"), orderBy("orden")));
+    const secSnap = await getDocs(collection(db, "secciones"));
     const platSnap = await getDocs(collection(db, "platos"));
-    setSecciones(secSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Seccion)));
+    setSecciones(secSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Seccion)).sort((a, b) => a.orden - b.orden));
     setPlatos(platSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Plato)));
   }
 

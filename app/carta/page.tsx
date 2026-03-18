@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, orderBy, query } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Seccion, Plato } from "@/lib/types";
 import Image from "next/image";
@@ -16,9 +16,11 @@ export default function CartaPage() {
     async function fetchData() {
       const timeout = setTimeout(() => setLoading(false), 8000);
       try {
-        const seccionesSnap = await getDocs(query(collection(db, "secciones"), orderBy("orden")));
+        const seccionesSnap = await getDocs(collection(db, "secciones"));
         const platosSnap = await getDocs(collection(db, "platos"));
-        const secs = seccionesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Seccion));
+        const secs = seccionesSnap.docs
+          .map((d) => ({ id: d.id, ...d.data() } as Seccion))
+          .sort((a, b) => a.orden - b.orden);
         setSecciones(secs);
         setPlatos(platosSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Plato)));
         if (secs.length > 0) setSeccionActiva(secs[0].id);
