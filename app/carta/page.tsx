@@ -1,10 +1,30 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, onSnapshot } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { Seccion, Plato } from "@/lib/types";
 import Image from "next/image";
+
+const PROJECT_ID = "yayu-fb3a9";
+const API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY!;
+const BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
+
+function parseDoc(doc: { name: string; fields: Record<string, { stringValue?: string; integerValue?: string; doubleValue?: number; booleanValue?: boolean }> }) {
+  const id = doc.name.split("/").pop()!;
+  const data: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(doc.fields ?? {})) {
+    if ("stringValue" in v) data[k] = v.stringValue;
+    else if ("integerValue" in v) data[k] = Number(v.integerValue);
+    else if ("doubleValue" in v) data[k] = v.doubleValue;
+    else if ("booleanValue" in v) data[k] = v.booleanValue;
+  }
+  return { id, ...data };
+}
+
+async function fetchCollection(name: string) {
+  const res = await fetch(`${BASE}/${name}?key=${API_KEY}`);
+  const json = await res.json();
+  return (json.documents ?? []).map(parseDoc);
+}
 
 export default function CartaPage() {
   const [secciones, setSecciones] = useState<Seccion[]>([]);
@@ -13,26 +33,14 @@ export default function CartaPage() {
   const [seccionActiva, setSeccionActiva] = useState<string | null>(null);
 
   useEffect(() => {
-    // Test REST API directo
-    fetch(`https://firestore.googleapis.com/v1/projects/yayu-fb3a9/databases/(default)/documents/secciones?key=${process.env.NEXT_PUBLIC_FIREBASE_API_KEY}`)
-      .then(r => r.json())
-      .then(d => console.log("REST secciones:", JSON.stringify(d).slice(0, 200)))
-      .catch(e => console.error("REST error:", e));
-
-    const unsubSec = onSnapshot(collection(db, "secciones"), (secSnap) => {
-      const unsubPlat = onSnapshot(collection(db, "platos"), (platSnap) => {
-        const secs = secSnap.docs
-          .map((d) => ({ id: d.id, ...d.data() } as Seccion))
-          .sort((a, b) => a.orden - b.orden);
-        const plats = platSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Plato));
-        setSecciones(secs);
-        setPlatos(plats);
-        if (secs.length > 0) setSeccionActiva((prev) => prev ?? secs[0].id);
-        setLoading(false);
-      });
-      return () => unsubPlat();
-    });
-    return () => unsubSec();
+    Promise.all([fetchCollection("secciones"), fetchCollection("platos")])
+      .then(([secs, plats]) => {
+        const sorted = (secs as Seccion[]).sort((a, b) => a.orden - b.orden);
+        setSecciones(sorted);
+        setPlatos(plats as Plato[]);
+        if (sorted.length > 0) setSeccionActiva(sorted[0].id);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const seccionActivaData = secciones.find((s) => s.id === seccionActiva);
@@ -134,7 +142,7 @@ export default function CartaPage() {
           )}
         </div>
 
-        {/* Cabecera doble precio (Nigiri/Sashimi) */}
+        {/* Cabecera doble precio */}
         {tieneDoblesPrecios && (
           <div className="flex justify-end mb-2 pb-2 border-b" style={{ borderColor: "#ddd5b8" }}>
             <div className="flex flex-col items-end gap-0.5">
@@ -150,29 +158,17 @@ export default function CartaPage() {
         ) : (
           <ul>
             {platosFiltrados.map((plato) => (
-              <li
-                key={plato.id}
-                className="flex items-start justify-between gap-4 py-4 border-b"
-                style={{ borderColor: "#ddd5b8" }}
-              >
+              <li key={plato.id} className="flex items-start justify-between gap-4 py-4 border-b" style={{ borderColor: "#ddd5b8" }}>
                 <div className="flex-1">
-                  <p className="font-bold text-base leading-snug" style={{ color: "#1e4d2b" }}>
-                    {plato.nombre}
-                  </p>
+                  <p className="font-bold text-base leading-snug" style={{ color: "#1e4d2b" }}>{plato.nombre}</p>
                   {plato.descripcion && (
-                    <p className="text-sm mt-0.5 leading-relaxed" style={{ color: "#4a8c5c" }}>
-                      {plato.descripcion}
-                    </p>
+                    <p className="text-sm mt-0.5 leading-relaxed" style={{ color: "#4a8c5c" }}>{plato.descripcion}</p>
                   )}
                 </div>
                 {plato.precio2 ? (
                   <div className="flex flex-col items-end shrink-0 gap-0.5 pt-0.5">
-                    <span className="font-extrabold text-sm" style={{ color: "#1e4d2b" }}>
-                      {plato.precio.toFixed(2)}€
-                    </span>
-                    <span className="font-extrabold text-sm" style={{ color: "#4a8c5c" }}>
-                      {plato.precio2.toFixed(2)}€
-                    </span>
+                    <span className="font-extrabold text-sm" style={{ color: "#1e4d2b" }}>{plato.precio.toFixed(2)}€</span>
+                    <span className="font-extrabold text-sm" style={{ color: "#4a8c5c" }}>{plato.precio2.toFixed(2)}€</span>
                   </div>
                 ) : (
                   <span className="font-extrabold text-base whitespace-nowrap pt-0.5 shrink-0" style={{ color: "#1e4d2b" }}>
