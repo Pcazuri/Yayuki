@@ -16,6 +16,7 @@ export default function CartaPage() {
     async function fetchData() {
       const timeout = setTimeout(() => setLoading(false), 8000);
       try {
+        console.log("ProjectID:", process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
         console.log("Cargando secciones...");
         const seccionesSnap = await getDocs(collection(db, "secciones"));
         console.log("Secciones recibidas:", seccionesSnap.docs.length);
