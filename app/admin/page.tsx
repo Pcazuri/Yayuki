@@ -268,7 +268,7 @@ export default function AdminPage() {
             {/* Botón poblar (si ya hay contenido, como opción de reset) */}
             <div className="flex justify-end">
               <button
-                onClick={() => { if (confirm("Esto borrará todo el contenido actual y lo reemplazará. ¿Continuar?")) poblarCarta(); }}
+                onClick={() => poblarCarta()}
                 disabled={poblando}
                 className="text-xs font-semibold hover:opacity-60 transition-opacity"
                 style={{ color: "#4a8c5c" }}
