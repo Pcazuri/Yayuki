@@ -13,6 +13,12 @@ export default function CartaPage() {
   const [seccionActiva, setSeccionActiva] = useState<string | null>(null);
 
   useEffect(() => {
+    // Test REST API directo
+    fetch(`https://firestore.googleapis.com/v1/projects/yayu-fb3a9/databases/(default)/documents/secciones?key=${process.env.NEXT_PUBLIC_FIREBASE_API_KEY}`)
+      .then(r => r.json())
+      .then(d => console.log("REST secciones:", JSON.stringify(d).slice(0, 200)))
+      .catch(e => console.error("REST error:", e));
+
     const unsubSec = onSnapshot(collection(db, "secciones"), (secSnap) => {
       const unsubPlat = onSnapshot(collection(db, "platos"), (platSnap) => {
         const secs = secSnap.docs
